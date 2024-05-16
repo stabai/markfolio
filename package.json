@@ -1,0 +1,21 @@
+{
+  "name": "markfolio",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "tsc index.ts",
+    "dev": "tsx index.ts"
+  },
+  "devDependencies": {
+    "@types/cross-zip": "^4.0.2",
+    "@types/node": "^20.12.10",
+    "tsx": "^4.9.3",
+    "type-fest": "^4.18.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "cross-zip": "^4.0.1",
+    "docx": "^8.5.0",
+    "marked": "^12.0.2",
+    "xmlbuilder2": "^3.1.1"
+  }
+}
