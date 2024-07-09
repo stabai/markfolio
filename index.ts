@@ -1,11 +1,10 @@
-import { Marked, RendererObject } from "marked";
-import * as fs from "fs/promises";
-import type { FileHandle } from "fs/promises";
-import * as path from "path";
-import * as zip from "cross-zip";
-import { Document, HeadingLevel, Packer, Paragraph } from "docx";
-import { Dirent } from "fs";
-import { docxRenderer, docxPreamble, DocxWriter } from "./DocxRenderer";
+import { Marked, RendererObject } from 'marked';
+import * as fs from 'fs/promises';
+import type { FileHandle } from 'fs/promises';
+import * as path from 'path';
+import { Dirent } from 'fs';
+import { docxRenderer, DocxWriter } from './DocxRenderer';
+import { execFile } from 'child_process';
 
 interface Portfolio {
   baseDir: string;
@@ -73,9 +72,7 @@ async function loadChapter(dirEntry: Dirent): Promise<Chapter> {
   if (dirEntry.isFile()) {
     chapter.scenes.push(await loadMarkdownFile(dirEntry));
   } else {
-    for (const fileEntry of await getDirEntries(
-      path.join(dirEntry.path, dirEntry.name),
-    )) {
+    for (const fileEntry of await getDirEntries(path.join(dirEntry.path, dirEntry.name))) {
       chapter.scenes.push(await loadMarkdownFile(fileEntry));
     }
   }
@@ -97,7 +94,7 @@ async function getMarkdownFiles(baseDir: string): Promise<Array<MarkdownFile>> {
     withFileTypes: true,
     recursive: true,
   })) {
-    if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".md") {
+    if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.md') {
       markdownFiles.push(await loadMarkdownFile(entry));
     }
   }
@@ -106,15 +103,13 @@ async function getMarkdownFiles(baseDir: string): Promise<Array<MarkdownFile>> {
 
 async function loadMarkdownFile(fileEntry: Dirent): Promise<MarkdownFile> {
   if (!fileEntry.isFile()) {
-    throw new Error(
-      `Expected a file but found a directory: "${fileEntry.name}"`,
-    );
+    throw new Error(`Expected a file but found a directory: "${fileEntry.name}"`);
   }
   const { name, number } = parseName(fileEntry);
   const filename = fileEntry.name;
   const relativeDir = fileEntry.path;
   const relativePath = path.join(fileEntry.path, fileEntry.name);
-  const markdownText = await fs.readFile(relativePath, "utf8");
+  const markdownText = await fs.readFile(relativePath, 'utf8');
   const renderedHtml = (await markedHtml.parse(markdownText)).trim();
   const renderedDocx = (await markedDocx.parse(markdownText)).trim();
   return {
@@ -130,7 +125,7 @@ async function loadMarkdownFile(fileEntry: Dirent): Promise<MarkdownFile> {
 }
 
 const loadPortfolio = async (): Promise<Portfolio> => {
-  const baseDir = "test";
+  const baseDir = 'test';
   const files = await getMarkdownFiles(baseDir);
   for (const file of files) {
     console.log(file.renderedHtml);
@@ -142,19 +137,19 @@ const loadPortfolio = async (): Promise<Portfolio> => {
 };
 
 const compilePortfolio = async (portfolio: Portfolio): Promise<string> => {
-  const outputFilename = path.join(portfolio.baseDir, "out", "compiled.html");
+  const outputFilename = path.join(portfolio.baseDir, 'out', 'compiled.html');
   let file: FileHandle | undefined;
   try {
-    file = await fs.open(outputFilename, "w");
+    file = await fs.open(outputFilename, 'w');
     for (const markdownFile of portfolio.files) {
-      await file.write(markdownFile.renderedHtml + "\n");
+      await file.write(markdownFile.renderedHtml + '\n');
     }
   } finally {
     if (file != null) {
       await file.close();
     }
   }
-  return "ok";
+  return 'ok';
   // const doc = new Document({
   //   sections: [
   //     {
@@ -175,10 +170,10 @@ async function getDirEntries(dir: string): Promise<Array<Dirent>> {
 }
 
 const loadPortfolio2 = async (): Promise<Portfolio2> => {
-  const baseDir = "test";
-  const frontFiles = await getDirEntries(path.join(baseDir, "1. Front"));
-  const chaptersFiles = await getDirEntries(path.join(baseDir, "2. Chapters"));
-  const backFiles = await getDirEntries(path.join(baseDir, "3. Back"));
+  const baseDir = 'test';
+  const frontFiles = await getDirEntries(path.join(baseDir, '1. Front'));
+  const chaptersFiles = await getDirEntries(path.join(baseDir, '2. Chapters'));
+  const backFiles = await getDirEntries(path.join(baseDir, '3. Back'));
   const front = await Promise.all(frontFiles.map(loadMarkdownFile));
   const chapters = await Promise.all(chaptersFiles.map(loadChapter));
   const back = await Promise.all(backFiles.map(loadMarkdownFile));
@@ -191,80 +186,93 @@ const loadPortfolio2 = async (): Promise<Portfolio2> => {
 };
 
 const compilePortfolio2 = async (portfolio: Portfolio2): Promise<string> => {
-  const outputFilename = path.join(portfolio.baseDir, "out", "compiled.html");
+  const outputFilename = path.join(portfolio.baseDir, 'out', 'compiled.html');
   let file: FileHandle | undefined;
   try {
-    file = await fs.open(outputFilename, "w");
-    await file.write("<header>\n");
+    file = await fs.open(outputFilename, 'w');
+    await file.write('<header>\n');
     for (const frontMatter of portfolio.front) {
       await file.write(`\n`);
       await file.write(` <section>\n`);
-      await file.write(indent(frontMatter.renderedHtml, "  ") + "\n");
+      await file.write(indent(frontMatter.renderedHtml, '  ') + '\n');
       await file.write(` </section>\n`);
     }
     await file.write(`\n`);
-    await file.write("</header>\n");
+    await file.write('</header>\n');
     await file.write(`\n`);
-    await file.write("<main>\n");
+    await file.write('<main>\n');
     for (const chapter of portfolio.chapters) {
       await file.write(`\n`);
       await file.write(` <section>\n`);
-      await file.write(
-        `  <h2>Chapter ${chapter.number}<br />${chapter.name}</h2>\n`,
-      );
+      await file.write(`  <h2>Chapter ${chapter.number}<br />${chapter.name}</h2>\n`);
       let articleIndex = 0;
       for (const scene of chapter.scenes) {
         if (articleIndex++ > 0) {
           await file.write(`  <p>❖</p>\n`);
         }
         await file.write(`  <article>\n`);
-        await file.write(indent(scene.renderedHtml, "   ") + "\n");
+        await file.write(indent(scene.renderedHtml, '   ') + '\n');
         await file.write(`  </article>\n`);
       }
       await file.write(` </section>\n`);
     }
     await file.write(`\n`);
-    await file.write("</main>\n");
+    await file.write('</main>\n');
     await file.write(`\n`);
-    await file.write("<footer>\n");
+    await file.write('<footer>\n');
     for (const backMatter of portfolio.back) {
       await file.write(`\n`);
       await file.write(` <section>\n`);
-      await file.write(indent(backMatter.renderedHtml, "  ") + "\n");
+      await file.write(indent(backMatter.renderedHtml, '  ') + '\n');
       await file.write(` </section>\n`);
     }
     await file.write(`\n`);
-    await file.write("</footer>\n");
+    await file.write('</footer>\n');
   } finally {
     if (file != null) {
       await file.close();
     }
   }
-  return "ok";
+  return 'ok';
 };
 
 const compilePortfolio3 = async (portfolio: Portfolio2): Promise<string> => {
-  const scratchPath = path.join(portfolio.baseDir, "out", "docx");
-  const docxOutputPath = path.join(portfolio.baseDir, "out", "compiled.docx");
-  await fs.mkdir(path.join(scratchPath, "_rels"), { recursive: true });
-  await fs.mkdir(path.join(scratchPath, "word", "_rels"), { recursive: true });
+  const scratchPath = path.join(portfolio.baseDir, 'out', 'docx');
+  const docxOutputPath = path.join(portfolio.baseDir, 'out', 'compiled.docx');
+  await fs.mkdir(path.join(scratchPath, '_rels'), { recursive: true });
+  await fs.mkdir(path.join(scratchPath, 'word', '_rels'), { recursive: true });
   await fs.writeFile(
-    path.join(scratchPath, "_rels", ".rels"),
-    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>`,
+    path.join(scratchPath, '_rels', '.rels'),
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>
+    </Relationships>`
   );
   await fs.writeFile(
-    path.join(scratchPath, "[Content_Types].xml"),
-    `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>`,
+    path.join(scratchPath, '[Content_Types].xml'),
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="jpeg" ContentType="image/jpeg"/>
+        <Default Extension="png" ContentType="image/png"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Override PartName="/_rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Override PartName="/word/_rels/document.xml.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>
+    `
   );
   await fs.writeFile(
-    path.join(scratchPath, "word", "_rels", "document.xml.rels"),
-    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>`,
+    path.join(scratchPath, 'word', '_rels', 'document.xml.rels'),
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      </Relationships>`
   );
 
-  const outputFilename = path.join(scratchPath, "word", "document.xml");
+  const outputFilename = path.join(scratchPath, 'word', 'document.xml');
   let file: FileHandle | undefined;
   try {
-    file = await fs.open(outputFilename, "w");
+    file = await fs.open(outputFilename, 'w');
     const docx = new DocxWriter(file);
     await docx.start();
     for (const frontMatter of portfolio.front) {
@@ -277,7 +285,7 @@ const compilePortfolio3 = async (portfolio: Portfolio2): Promise<string> => {
       }
     }
     for (const backMatter of portfolio.back) {
-      await docx.write(indent(backMatter.renderedDocx, "  ") + "\n");
+      await docx.write(indent(backMatter.renderedDocx, '  ') + '\n');
     }
     await docx.end();
   } finally {
@@ -285,20 +293,32 @@ const compilePortfolio3 = async (portfolio: Portfolio2): Promise<string> => {
       await file.close();
     }
   }
-  console.log({ scratchPath, docxOutputPath });
-  zip.zipSync(scratchPath, docxOutputPath);
-  return "ok";
+  await zip(scratchPath, '.', docxOutputPath);
+  return 'ok';
 };
 
+async function zip(rootDir: string, fileSelector: string, outputFilePath: string): Promise<void> {
+  const absoluteOutputFilePath = path.relative(rootDir, outputFilePath);
+  const child = execFile('zip', ['-r', absoluteOutputFilePath, fileSelector], {
+    cwd: rootDir,
+  });
+  const promise = new Promise<void>((resolve) => {
+    child.on('exit', function () {
+      resolve();
+    });
+  });
+  return promise;
+}
+
 function indent(text: string, indention: string) {
-  return indention + text.trim().replaceAll("\n", `\n${indention}`);
+  return indention + text.trim().replaceAll('\n', `\n${indention}`);
 }
 
 function dedent(text: string): string {
-  const trimmed = text.replace(/^\n+/, "");
+  const trimmed = text.replace(/^\n+/, '');
   const indentMatch = trimmed.match(/^(\s+)/) || [];
   const indention = indentMatch[1];
-  return ("\n" + trimmed).replaceAll("\n" + indention, "\n").trim();
+  return ('\n' + trimmed).replaceAll('\n' + indention, '\n').trim();
 }
 
 loadPortfolio2().then(compilePortfolio3).then(console.log);
